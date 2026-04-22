@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RPSTCG Simulator</title>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+
+    textarea {
+      width: 360px;
+      height: 140px;
+    }
+
+    .card {
+      display: inline-block;
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      cursor: pointer;
+      background: white;
+      user-select: none;
+      transition: 0.15s;
+    }
+
+    .card.selected {
+      background: #cfe9ff;
+      transform: translateY(-3px);
+    }
+
+    .panel {
+      margin-top: 20px;
+      padding: 10px;
+      border-top: 2px solid #ccc;
+    }
+
+    input {
+      width: 120px;
+      margin: 5px;
+    }
+
+    button {
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    #message {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Manual Card Sandbox</h1>
+
+<!-- DECK -->
+<div>
+  <h3>RPSTCG Simulator</h3>
+  <p>Format: Name: Copies</p>
+
+  <textarea id="deckInput">
+Thinner Paper: 6
+Larger Rock: 6
+Sharper Scissors: 6
+Veto: 3
+Gun: 3
+Rejuvinate: 3
+Hidden: 3
+  </textarea>
+
+  <button onclick="buildDeck()">Build Deck</button>
+</div>
+
+<hr>
+
+<!-- GAME -->
+<button onclick="endTurn()">End Turn</button>
+
+<p id="energyDisplay"></p>
+<p id="cardsRemaining"></p>
+<p id="message"></p>
+
+<h3>Hand (click to select cards)</h3>
+<div id="hand"></div>
+
+<!-- RULES -->
+<div class="panel">
+  <h3>Turn Inputs</h3>
+
+  Max Energy:
+  <input id="maxEnergy" type="number" value="30">
+
+  <br>
+
+  Energy Cost this turn (input sum of costs of selected cards):
+  <input id="energyCost" type="number" value="0">
+
+  Energy Gain next turn:
+  <input id="energyGain" type="number" value="5">
+</div>
+
+<script>
+
+/* -----------------------
+   STATE
+----------------------- */
+let deck = [];
+let hand = [];
+let selected = new Set();
+
+let energy = 5;
+
+/* -----------------------
+   BUILD DECK
+----------------------- */
+function buildDeck() {
+  const lines = document.getElementById("deckInput").value.trim().split("\n");
+
+  deck = [];
+
+  for (let line of lines) {
+    if (!line.includes(":")) continue;
+
+    let [name, copies] = line.split(":");
+    copies = parseInt(copies);
+
+    for (let i = 0; i < copies; i++) {
+      deck.push(name.trim());
+    }
+  }
+
+  shuffle(deck);
+
+  hand = [];
+  selected.clear();
+
+  energy = 5
+
+  drawToFour();
+  updateUI();
+}
+
+/* -----------------------
+   DRAW
+----------------------- */
+function drawToFour() {
+  while (hand.length < 4 && deck.length > 0) {
+    hand.push(deck.pop());
+  }
+}
+
+/* -----------------------
+   END TURN (WITH ENERGY CHECK)
+----------------------- */
+function endTurn() {
+  const cost = parseInt(document.getElementById("energyCost").value) || 0;
+  const gain = parseInt(document.getElementById("energyGain").value) || 0;
+  const max = parseInt(document.getElementById("maxEnergy").value);
+
+  const msg = document.getElementById("message");
+
+  // ❌ BLOCK TURN IF TOO EXPENSIVE
+  if (cost > energy) {
+    msg.innerText = "Too expensive, not enough energy!";
+    return;
+  }
+
+  msg.innerText = "";
+
+  // APPLY ENERGY CHANGE
+  energy = energy - cost + gain;
+
+  // clamp
+  energy = Math.min(Math.max(0, energy), max);
+
+  // remove selected cards
+  hand = hand.filter((_, i) => !selected.has(i));
+  selected.clear();
+
+  updateUI();
+
+  setTimeout(() => {
+    drawToFour();
+    updateUI();
+  }, 300);
+}
+
+/* -----------------------
+   SELECT CARDS
+----------------------- */
+function toggleCard(i) {
+  selected.has(i) ? selected.delete(i) : selected.add(i);
+  updateUI();
+}
+
+/* -----------------------
+   UI
+----------------------- */
+function updateUI() {
+  const max = parseInt(document.getElementById("maxEnergy").value);
+
+  document.getElementById("energyDisplay").innerText =
+    `Energy: ${energy}/${max}`;
+  document.getElementById("cardsRemaining").innerText =
+    `Cards Remaining: ${deck.length}`;
+
+  const handDiv = document.getElementById("hand");
+  handDiv.innerHTML = "";
+
+  hand.forEach((card, i) => {
+    const el = document.createElement("div");
+    el.className = "card";
+
+    if (selected.has(i)) {
+      el.classList.add("selected");
+    }
+
+    el.innerText = card;
+    el.onclick = () => toggleCard(i);
+
+    handDiv.appendChild(el);
+  });
+}
+
+/* -----------------------
+   SHUFFLE
+----------------------- */
+function shuffle(arr) {
+  arr.sort(() => Math.random() - 0.5);
+}
+
+/* -----------------------
+   INIT
+----------------------- */
+buildDeck();
+
+</script>
+
+</body>
+</html>
